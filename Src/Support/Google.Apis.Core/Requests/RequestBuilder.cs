@@ -272,13 +272,12 @@ namespace Google.Apis.Requests
                             {
                                 throw new ArgumentException($"Reserved path parameter '{parameterName}' contains invalid character '?' or '#': '{val}'");
                             }
-                            // Split path parameter value by '/' and reject any standalone dot (.) or double-dot (..) segments
-                            // (either literal or URL-encoded) to prevent path traversal exploits.
-                            string[] segments = val.Split('/');
+                            // Unescape the entire value first and split by '/' to prevent bypasses using URL-encoded slashes (e.g. %2f).
+                            string unescapedVal = Uri.UnescapeDataString(val);
+                            string[] segments = unescapedVal.Split('/');
                             foreach (var segment in segments)
                             {
-                                string unescaped = Uri.UnescapeDataString(segment);
-                                if (unescaped == "." || unescaped == "..")
+                                if (segment == "." || segment == "..")
                                 {
                                     throw new ArgumentException($"Path parameter '{parameterName}' contains invalid segment '.' or '..': '{val}'");
                                 }
