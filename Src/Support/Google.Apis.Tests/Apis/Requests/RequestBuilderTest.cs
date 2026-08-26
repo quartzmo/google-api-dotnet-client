@@ -1,4 +1,4 @@
-﻿/*
+/*
 Copyright 2012 Google Inc
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -392,6 +392,59 @@ namespace Google.Apis.Tests.Apis.Requests
             }
 
             Assert.Equal("http://www.example.com/" + expected, builder.BuildUri().AbsoluteUri);
+        }
+
+        [Theory]
+        // Dialogflow session (standard single-wildcard path)
+        [InlineData("v3/{session}:detectIntent", "projects/p/locations/l/agents/a/sessions/..")]
+        [InlineData("v3/{session}:detectIntent", "projects/p/locations/l/agents/a/sessions/.")]
+        // Firestore documents (reserved template expansion)
+        [InlineData("v1/{+name}", "projects/sys-prod-123/databases/default/documents/doc-1/../../default")]
+        [InlineData("v1/{+name}", "projects/sys-prod-123/databases/default/documents/doc-1/../../../../../../../escape-db")]
+        [InlineData("v1/{+name}", "projects/sys-prod-123/databases/default/documents/doc-1/%2e%2e/escape-db")]
+        [InlineData("v1/{+name}", "../escape-db")]
+        [InlineData("v1/{+name}", "projects/sys-prod-123/databases/default/documents/doc-1/./child")]
+        [InlineData("v1/{+name}", "projects/p/databases/d/documents/doc?key=val")]
+        [InlineData("v1/{+name}", "projects/p/databases/d/documents/doc#frag")]
+        // Webhooks (multiple standard wildcards)
+        [InlineData("v3/projects/{project}/webhooks/{webhook}", "..")]
+        [InlineData("v3/projects/{project}/webhooks/{webhook}", ".")]
+        public void PathTraversalAndInjection_ThrowsArgumentException(string path, string paramValue)
+        {
+            var builder = new RequestBuilder()
+            {
+                BaseUri = new Uri("http://www.example.com"),
+                Path = path
+            };
+
+            string paramName = path.Contains("session") ? "session" :
+                               path.Contains("webhook") ? "webhook" : "name";
+
+            if (path.Contains("project"))
+            {
+                builder.AddParameter(RequestParameterType.Path, "project", "p1");
+            }
+
+            builder.AddParameter(RequestParameterType.Path, paramName, paramValue);
+
+            Assert.Throws<ArgumentException>(() => builder.BuildUri());
+        }
+
+        [Theory]
+        [InlineData("v1/{+name}", "projects/sys-prod-123/databases/default/documents/doc-1", "http://www.example.com/v1/projects/sys-prod-123/databases/default/documents/doc-1")]
+        [InlineData("v1/{+name}", "projects/sys-prod-123/databases/default/documents/my-file.txt", "http://www.example.com/v1/projects/sys-prod-123/databases/default/documents/my-file.txt")]
+        [InlineData("v1/{+name}", "projects/sys-prod-123/databases/default/documents/my-file..txt", "http://www.example.com/v1/projects/sys-prod-123/databases/default/documents/my-file..txt")]
+        public void ValidRealisticPatterns_Succeed(string path, string paramValue, string expectedUri)
+        {
+            var builder = new RequestBuilder()
+            {
+                BaseUri = new Uri("http://www.example.com"),
+                Path = path
+            };
+
+            builder.AddParameter(RequestParameterType.Path, "name", paramValue);
+
+            Assert.Equal(expectedUri, builder.BuildUri().AbsoluteUri);
         }
     }
 }

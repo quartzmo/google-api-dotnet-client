@@ -1,4 +1,4 @@
-﻿/*
+/*
 Copyright 2012 Google Inc
 
 Licensed under the Apache License, Version 2.0(the "License");
@@ -259,6 +259,32 @@ namespace Google.Apis.Requests
                     // Check if a path parameter equals the name which appears in the REST path.
                     if (PathParameters.ContainsKey(parameterName))
                     {
+                        var parameterValues = PathParameters[parameterName];
+                        foreach (var val in parameterValues)
+                        {
+                            if (val is null)
+                            {
+                                continue;
+                            }
+                            // Reject query (?) or fragment (#) injections in reserved expansions (+ or #).
+                            // Since reserved expansions bypass escaping (to preserve slashes), this check acts as the primary control to prevent parameter injection.
+                            if ((op == "+" || op == "#") && (val.Contains("?") || val.Contains("#")))
+                            {
+                                throw new ArgumentException($"Reserved path parameter '{parameterName}' contains invalid character '?' or '#': '{val}'");
+                            }
+                            // Split path parameter value by '/' and reject any standalone dot (.) or double-dot (..) segments
+                            // (either literal or URL-encoded) to prevent path traversal exploits.
+                            string[] segments = val.Split('/');
+                            foreach (var segment in segments)
+                            {
+                                string unescaped = Uri.UnescapeDataString(segment);
+                                if (unescaped == "." || unescaped == "..")
+                                {
+                                    throw new ArgumentException($"Path parameter '{parameterName}' contains invalid segment '.' or '..': '{val}'");
+                                }
+                            }
+                        }
+
                         var value = string.Join(joiner, PathParameters[parameterName]);
 
                         // Check if we need to use a substring of the value.
@@ -267,6 +293,10 @@ namespace Google.Apis.Requests
                             value = value.Substring(0, numOfChars);
                         }
 
+                        // Do not escape the value if the operator is a reserved (+) or fragment (#) expansion.
+                        // The former is needed for path values (to preserve slashes), and the latter for OAuth2 callback and redirection URIs.
+                        // Since these operators bypass URL-escaping, any query (?) or fragment (#) characters in their values
+                        // must be explicitly rejected (handled in the validation loop above) to prevent parameter injection.
                         if (op != "+" && op != "#" && PathParameters[parameterName].Count == 1)
                         {
                             value = Uri.EscapeDataString(value);
