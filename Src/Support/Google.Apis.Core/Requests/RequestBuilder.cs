@@ -268,19 +268,33 @@ namespace Google.Apis.Requests
                             }
                             // Reject query (?) or fragment (#) injections in reserved expansions (+ or #).
                             // Since reserved expansions bypass escaping (to preserve slashes), this check acts as the primary control to prevent parameter injection.
-                            if ((op == "+" || op == "#") && (val.Contains("?") || val.Contains("#")))
+                            if ((op == "+" || op == "#") && (val.IndexOf('?') != -1 || val.IndexOf('#') != -1))
                             {
                                 throw new ArgumentException($"Reserved path parameter '{parameterName}' contains invalid character '?' or '#': '{val}'");
                             }
-                            // Unescape the entire value first and split by '/' to prevent bypasses using URL-encoded slashes (e.g. %2f).
+                            // Unescape the entire value first to prevent bypasses using URL-encoded slashes (e.g. %2f).
                             string unescapedVal = Uri.UnescapeDataString(val);
-                            string[] segments = unescapedVal.Split('/');
-                            foreach (var segment in segments)
+                            // Scan for '.' and '..' segments in place using char-index scanning to avoid heap allocations.
+                            int valStart = 0;
+                            while (valStart < unescapedVal.Length)
                             {
-                                if (segment == "." || segment == "..")
+                                int nextSlash = unescapedVal.IndexOf('/', valStart);
+                                int segmentLength = nextSlash == -1 ? unescapedVal.Length - valStart : nextSlash - valStart;
+
+                                if (segmentLength == 1 && unescapedVal[valStart] == '.')
                                 {
                                     throw new ArgumentException($"Path parameter '{parameterName}' contains invalid segment '.' or '..': '{val}'");
                                 }
+                                if (segmentLength == 2 && unescapedVal[valStart] == '.' && unescapedVal[valStart + 1] == '.')
+                                {
+                                    throw new ArgumentException($"Path parameter '{parameterName}' contains invalid segment '.' or '..': '{val}'");
+                                }
+
+                                if (nextSlash == -1)
+                                {
+                                    break;
+                                }
+                                valStart = nextSlash + 1;
                             }
                         }
 
