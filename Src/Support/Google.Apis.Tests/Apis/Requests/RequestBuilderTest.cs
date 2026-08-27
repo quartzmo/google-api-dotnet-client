@@ -429,7 +429,23 @@ namespace Google.Apis.Tests.Apis.Requests
 
             builder.AddParameter(RequestParameterType.Path, paramName, paramValue);
 
-            Assert.Throws<ArgumentException>(() => builder.BuildUri());
+            var exception = Assert.Throws<ArgumentException>(() => builder.BuildUri());
+            string unescaped = Uri.UnescapeDataString(paramValue);
+            bool hasDoubleDot = false;
+            bool hasSingleDot = false;
+            foreach (var segment in unescaped.Split('/'))
+            {
+                if (segment == "..") hasDoubleDot = true;
+                if (segment == ".") hasSingleDot = true;
+            }
+            if (hasDoubleDot)
+            {
+                Assert.Contains("contains invalid segment '..'", exception.Message);
+            }
+            else if (hasSingleDot)
+            {
+                Assert.Contains("contains invalid segment '.'", exception.Message);
+            }
         }
 
         [Theory]

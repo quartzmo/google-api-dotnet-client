@@ -283,11 +283,11 @@ namespace Google.Apis.Requests
 
                                 if (segmentLength == 1 && unescapedVal[valStart] == '.')
                                 {
-                                    throw new ArgumentException($"Path parameter '{parameterName}' contains invalid segment '.' or '..': '{val}'");
+                                    throw new ArgumentException($"Path parameter '{parameterName}' contains invalid segment '.': '{val}'");
                                 }
                                 if (segmentLength == 2 && unescapedVal[valStart] == '.' && unescapedVal[valStart + 1] == '.')
                                 {
-                                    throw new ArgumentException($"Path parameter '{parameterName}' contains invalid segment '.' or '..': '{val}'");
+                                    throw new ArgumentException($"Path parameter '{parameterName}' contains invalid segment '..': '{val}'");
                                 }
 
                                 if (nextSlash == -1)
