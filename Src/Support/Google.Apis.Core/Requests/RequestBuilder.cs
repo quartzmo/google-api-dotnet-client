@@ -274,6 +274,7 @@ namespace Google.Apis.Requests
                             }
                             // Unescape the entire value first to prevent bypasses using URL-encoded slashes (e.g. %2f).
                             string unescapedVal = Uri.UnescapeDataString(val);
+                            bool isReserved = op == "+" || op == "#";
                             // Scan for '.' and '..' segments in place using char-index scanning to avoid heap allocations.
                             int valStart = 0;
                             while (valStart < unescapedVal.Length)
@@ -283,11 +284,25 @@ namespace Google.Apis.Requests
 
                                 if (segmentLength == 1 && unescapedVal[valStart] == '.')
                                 {
-                                    throw new ArgumentException($"Path parameter '{parameterName}' contains invalid segment '.': '{val}'");
+                                    if (!isReserved)
+                                    {
+                                        throw new ArgumentException($"Invalid value '.' for {parameterName}");
+                                    }
+                                    else
+                                    {
+                                        throw new ArgumentException($"Value for {parameterName} must not contain segments that are exactly . or ..");
+                                    }
                                 }
                                 if (segmentLength == 2 && unescapedVal[valStart] == '.' && unescapedVal[valStart + 1] == '.')
                                 {
-                                    throw new ArgumentException($"Path parameter '{parameterName}' contains invalid segment '..': '{val}'");
+                                    if (!isReserved)
+                                    {
+                                        throw new ArgumentException($"Invalid value '..' for {parameterName}");
+                                    }
+                                    else
+                                    {
+                                        throw new ArgumentException($"Value for {parameterName} must not contain segments that are exactly . or ..");
+                                    }
                                 }
 
                                 if (nextSlash == -1)

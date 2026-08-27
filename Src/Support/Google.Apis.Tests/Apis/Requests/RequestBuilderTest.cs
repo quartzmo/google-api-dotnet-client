@@ -431,6 +431,14 @@ namespace Google.Apis.Tests.Apis.Requests
 
             var exception = Assert.Throws<ArgumentException>(() => builder.BuildUri());
             string unescaped = Uri.UnescapeDataString(paramValue);
+
+            if (unescaped.Contains("?") || unescaped.Contains("#"))
+            {
+                Assert.StartsWith($"Reserved path parameter '{paramName}' contains invalid character", exception.Message);
+                return;
+            }
+
+            bool isReserved = path.Contains("{+") || path.Contains("{#");
             bool hasDoubleDot = false;
             bool hasSingleDot = false;
             foreach (var segment in unescaped.Split('/'))
@@ -438,13 +446,15 @@ namespace Google.Apis.Tests.Apis.Requests
                 if (segment == "..") hasDoubleDot = true;
                 if (segment == ".") hasSingleDot = true;
             }
-            if (hasDoubleDot)
+
+            if (!isReserved)
             {
-                Assert.Contains("contains invalid segment '..'", exception.Message);
+                string matchedDot = hasDoubleDot ? ".." : (hasSingleDot ? "." : "");
+                Assert.StartsWith($"Invalid value '{matchedDot}' for {paramName}", exception.Message);
             }
-            else if (hasSingleDot)
+            else
             {
-                Assert.Contains("contains invalid segment '.'", exception.Message);
+                Assert.StartsWith($"Value for {paramName} must not contain segments that are exactly . or ..", exception.Message);
             }
         }
 
